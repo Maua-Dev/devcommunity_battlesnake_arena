@@ -42,11 +42,12 @@ jobs:
           echo "STACK_NAME=BattlesnakeArenaStack${{ github.ref_name }}" >> $GITHUB_ENV
 
       - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GithubActionsRole
-          role-session-name: github-action-battlesnake-arena
+          role-session-name: github-action
+          retry-max-attempts: 2
 
       - name: Installing Dependencies
         run: |
