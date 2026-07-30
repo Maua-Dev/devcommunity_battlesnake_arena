@@ -1,0 +1,65 @@
+name: EC2 Power
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Start or stop the Arena EC2 instance
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+
+jobs:
+  power:
+    name: ${{ inputs.action }} EC2
+    environment:
+      name: ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Set AWS Account ID
+        run: |
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "homolog" ]]; then
+            echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID_HOML }}" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "prod" ]]; then
+            echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_ENV
+          else
+            echo "Run this workflow from branch dev, homolog, or prod." && exit 1
+          fi
+          echo "STAGE=${{ github.ref_name }}" >> $GITHUB_ENV
+
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          role-session-name: github-action-arena-power
+
+      - name: Resolve instance id and ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          PARAM="/battlesnake-arena/${STAGE}/instance-id"
+          INSTANCE_ID="$(aws ssm get-parameter --name "$PARAM" --query 'Parameter.Value' --output text)"
+          echo "Instance: $INSTANCE_ID (param $PARAM)"
+
+          if [[ "${{ inputs.action }}" == "start" ]]; then
+            aws ec2 start-instances --instance-ids "$INSTANCE_ID"
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+            echo "Instance is running."
+          else
+            aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+            aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"
+            echo "Instance is stopped."
+          fi
+
+          aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].[InstanceId,State.Name,PublicIpAddress]' \
+            --output table
