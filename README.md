@@ -113,7 +113,7 @@ sudo docker compose up -d
 
 ## Contributors
 
-- [lseixas](https://github.com/lseixas) 🐉
+- Leonardo Iorio [lseixas](https://github.com/lseixas) 🐉
 
 ## License
 
