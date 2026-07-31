@@ -10,7 +10,8 @@ on:
 
 jobs:
   DeployToAWS:
-
+    environment:
+      name: ${{ github.ref_name }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
