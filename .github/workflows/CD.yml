@@ -44,11 +44,6 @@ jobs:
           fi
           echo "STACK_NAME=BattlesnakeArenaStack${{ github.ref_name }}" >> $GITHUB_ENV
 
-      - name: Debug target account (masked)
-        run: |
-          echo "account_len=${#AWS_ACCOUNT_ID}"
-          echo "account_suffix=${AWS_ACCOUNT_ID: -4}"
-      
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
