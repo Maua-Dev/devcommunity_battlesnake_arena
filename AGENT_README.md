@@ -18,6 +18,7 @@ This repository deploys [BattlesnakeOfficial/arena](https://github.com/Battlesna
 - Edit files inside `arena/` unless intentionally forking upstream behavior
 - Commit secrets (`.env`, OAuth client secrets)
 - Create AWS resources from a laptop; use CD / EC2 Power workflows
+- Deploy or run the Arena compose stack without `BASE_URL` set to the public origin (FQDN in prod, e.g. `https://arena.dev.devmaua.com`). Missing `BASE_URL` defaults to `http://localhost:3000` and breaks the board client for remote users.
 
 ## Submodule
 
@@ -27,11 +28,17 @@ git submodule update --init --recursive
 
 ## Local stack (Docker)
 
+No EC2 required. See [`README.md`](README.md#quick-start-local-docker).
+
 ```bash
+git submodule update --init --recursive
 cd deploy
 cp .env.example .env
+# set BASE_URL=http://localhost, DOMAIN_NAME=localhost, OAuth callback for localhost
 docker compose up -d --build
 ```
+
+Open http://localhost. Never omit `BASE_URL` when testing game viewing with `board.battlesnake.com`.
 
 ## IaC env vars (CD / synth)
 

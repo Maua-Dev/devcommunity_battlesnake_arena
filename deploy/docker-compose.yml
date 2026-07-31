@@ -28,6 +28,8 @@ services:
         condition: service_healthy
     environment:
       PORT: "8080"
+      # Public URL used by board.battlesnake.com iframe (engine=). Required in prod.
+      BASE_URL: ${BASE_URL}
       DATABASE_URL: postgresql://${POSTGRES_USER:-arena}:${POSTGRES_PASSWORD:-arena}@postgres:5432/${POSTGRES_DB:-arena}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}

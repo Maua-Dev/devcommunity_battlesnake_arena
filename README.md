@@ -19,12 +19,36 @@ Details: [`specs/architecture.md`](specs/architecture.md), [`CONTEXT.md`](CONTEX
 
 ## Quick start (local Docker)
 
+No EC2 required — use Docker Compose on your machine.
+
 ```bash
 git submodule update --init --recursive
 cd deploy
 cp .env.example .env
+```
+
+Edit `deploy/.env` for local use:
+
+```bash
+BASE_URL=http://localhost
+DOMAIN_NAME=localhost
+POSTGRES_USER=arena
+POSTGRES_PASSWORD=arena
+POSTGRES_DB=arena
+GITHUB_CLIENT_ID=<from a GitHub App>
+GITHUB_CLIENT_SECRET=<from a GitHub App>
+GITHUB_REDIRECT_URI=http://localhost/auth/github/callback
+```
+
+Create a GitHub App with homepage `http://localhost` and callback `http://localhost/auth/github/callback`, then:
+
+```bash
 docker compose up -d --build
 ```
+
+Open **http://localhost**. First Rust image build can take several minutes.
+
+`BASE_URL` is what the official board (`board.battlesnake.com`) uses as `engine=`. If it stays at the default (`http://localhost:3000`) or points at the wrong host, spectators see games against the wrong machine. For another device on your LAN, use your Mac’s LAN IP in `BASE_URL` (and open that IP in the browser).
 
 ## Infrastructure & power
 
@@ -76,6 +100,7 @@ nano .env
 Set at least:
 
 ```bash
+BASE_URL=https://arena.dev.devmaua.com
 DOMAIN_NAME=arena.dev.devmaua.com
 POSTGRES_USER=arena
 POSTGRES_PASSWORD=<strong-password>
@@ -84,6 +109,8 @@ GITHUB_CLIENT_ID=<from GitHub App>
 GITHUB_CLIENT_SECRET=<from GitHub App>
 GITHUB_REDIRECT_URI=https://arena.dev.devmaua.com/auth/github/callback
 ```
+
+`BASE_URL` must be the public HTTPS origin (no trailing slash). Without it, the board client defaults to `http://localhost:3000` and games break for other users.
 
 ### 5. Start the stack
 
@@ -102,6 +129,19 @@ curl -I http://localhost
 
 Open `https://<DOMAIN_NAME>` in the browser.
 
+### Hotfix: set / update `BASE_URL` on a running host
+
+If the stack is already up but games point at localhost, on the EC2 (SSM):
+
+```bash
+cd /opt/battlesnake-arena/deploy
+nano .env   # add or fix: BASE_URL=https://arena.dev.devmaua.com
+# optional: git pull so docker-compose.yml includes BASE_URL
+sudo docker compose up -d
+```
+
+That recreates the `arena` container with the new env (no CDK redeploy).
+
 ### After stop/start
 
 You do **not** need to re-clone or re-bootstrap. Disk and Docker volumes persist. If containers did not come back:
@@ -113,7 +153,7 @@ sudo docker compose up -d
 
 ## Contributors
 
-- Leonardo Iorio [lseixas](https://github.com/lseixas) 🐉
+- Leonardo Iorio - [lseixas](https://github.com/lseixas) 🐉
 
 ## License
 
