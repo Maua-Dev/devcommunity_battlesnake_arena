@@ -54,7 +54,7 @@ The job reads `/battlesnake-arena/{stage}/instance-id` from SSM and calls `ec2 s
 
 Access the host with **SSM Session Manager** (no SSH key).
 
-After first infra deploy, place `deploy/.env` on the instance and run `deploy/scripts/bootstrap.sh`.
+After first infra deploy, follow the full bootstrap checklist in [`README.md`](README.md#after-ec2-is-up-first-bootstrap) (GitHub App, clone, `.env`, `bootstrap.sh`). Stop/start does not require re-bootstrap.
 
 ## Specs
 
