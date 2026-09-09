@@ -133,4 +133,10 @@ dmypy.json
 
 /.vscode/
 /.idea/
-iac/local/docker/dynamodb/shared-local-instance.db
+
+# Deploy secrets
+deploy/.env
+
+# CDK
+iac/.venv/
+iac/cdk.out/

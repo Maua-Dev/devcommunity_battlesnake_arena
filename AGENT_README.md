@@ -1,0 +1,73 @@
+# Readme for AI Agents
+
+This repository deploys [BattlesnakeOfficial/arena](https://github.com/BattlesnakeOfficial/arena) on **Amazon EC2** via CDK. It is **not** a Lambda/Clean Arch microservice and **not** Lightsail.
+
+## Project map
+
+| Path | Purpose |
+|------|---------|
+| `arena/` | Git submodule — upstream Arena (Rust app + Dockerfile) |
+| `deploy/` | docker-compose, Caddy, bootstrap scripts for the VM |
+| `iac/` | AWS CDK (EC2 + Route53), pattern from clean_mss_template v2 |
+| `specs/` | Spec-driven requirements for architecture and infra |
+| `CONTEXT.md` | Locked decisions and current state |
+
+## Do not
+
+- Reintroduce Lambda hosting, Lightsail, API Gateway, DynamoDB, or `src/modules` Clean Arch layout
+- Edit files inside `arena/` unless intentionally forking upstream behavior
+- Commit secrets (`.env`, OAuth client secrets)
+- Create AWS resources from a laptop; use CD / EC2 Power workflows
+- Deploy or run the Arena compose stack without `BASE_URL` set to the public origin (FQDN in prod, e.g. `https://arena.dev.devmaua.com`). Missing `BASE_URL` defaults to `http://localhost:3000` and breaks the board client for remote users.
+
+## Submodule
+
+```bash
+git submodule update --init --recursive
+```
+
+## Local stack (Docker)
+
+No EC2 required. See [`README.md`](README.md#quick-start-local-docker).
+
+```bash
+git submodule update --init --recursive
+cd deploy
+cp .env.example .env
+# set BASE_URL=http://localhost, DOMAIN_NAME=localhost, OAuth callback for localhost
+docker compose up -d --build
+```
+
+Open http://localhost. Never omit `BASE_URL` when testing game viewing with `board.battlesnake.com`.
+
+## IaC env vars (CD / synth)
+
+| Variable | Meaning |
+|----------|---------|
+| `AWS_ACCOUNT_ID` | Target account |
+| `AWS_REGION` | e.g. from `vars.AWS_REGION` |
+| `STACK_NAME` | e.g. `BattlesnakeArenaStackdev` |
+| `GITHUB_REF_NAME` | `dev` / `homolog` / `prod` |
+| `HOSTED_ZONE_ID` | Existing Route53 hosted zone |
+| `HOSTED_ZONE_NAME` | Zone apex (recommended) |
+| `DOMAIN_NAME` | FQDN for Arena A record |
+| `EC2_INSTANCE_TYPE` | Optional; default `t3.medium` |
+
+## Start / stop EC2
+
+GitHub Actions → **EC2 Power** → Run workflow → choose branch environment + `start` or `stop`.
+
+The job reads `/battlesnake-arena/{stage}/instance-id` from SSM and calls `ec2 start-instances` / `stop-instances`.
+
+Access the host with **SSM Session Manager** (no SSH key).
+
+After first infra deploy, follow the full bootstrap checklist in [`README.md`](README.md#after-ec2-is-up-first-bootstrap) (GitHub App, clone, `.env`, `bootstrap.sh`). Stop/start does not require re-bootstrap.
+
+## Specs
+
+- `specs/architecture.md`
+- `specs/infra/ec2.md`
+
+## Upstream Arena
+
+Needs PostgreSQL, `DATABASE_URL`, GitHub OAuth. See `arena/README.md`.

@@ -1,186 +1,160 @@
-# clean_mss_template 🌡🍽
+# Dev Community — Battlesnake Arena
 
-Template for microservices repositories based in Clean Arch
+Hosts [BattlesnakeOfficial/arena](https://github.com/BattlesnakeOfficial/arena) on **Amazon EC2** with **Route53** DNS. Start/stop the instance via GitHub Actions to save cost when idle.
 
-## The Project 📽
+## Architecture
 
-### Introduction and Objectives ⁉
+Route53 → Elastic IP → Caddy (TLS) → Arena + PostgreSQL (Docker Compose on `t3.medium`).
 
-The main objective is to provide a template for repositories that can be used as a starting point for new projects. This
-architecture is based on the Clean Architecture, and it was based in many other projects and books, articles that were
-mixed by the students of Mauá Institute of Technology, from the academic group Dev. Community Mauá.
+Details: [`specs/architecture.md`](specs/architecture.md), [`CONTEXT.md`](CONTEXT.md). Agents: [`AGENT_README.md`](AGENT_README.md).
 
-### Reasons 1️⃣3️⃣
+## Layout
 
-The project aims to help developers to start new projects with a good architecture, and with a good structure, so that anybody can create good applications.
+| Path | Role |
+|------|------|
+| `arena/` | Upstream Arena (git submodule) |
+| `deploy/` | docker-compose, Caddy, bootstrap |
+| `iac/` | CDK EC2 + Route53 |
+| `specs/` | Spec-driven requirements |
 
-### Clean Architecture 🧼🏰
+## Quick start (local Docker)
 
-The purpose of the project is to learn and create a Clean Architecture for microservices stateless with AWS Lambda which is a way of structuring
-the code in layers, each of which has a
-specific responsibility. This architecture is based on the principles of SOLID and books like "Clean Architecture: A
-Craftsman's Guide to Software Structure and Design" by Robert C. Martin.
-
-We also tried to explain for new programmers in the mos intuitive way and you can see the explanation here: [Clean Architecture Figma](https://www.figma.com/file/CmfQcH2xbZyIszPX0iOxPp/Clean-Arch---HackaBeckas?node-id=0%3A1&t=B38vNfX3VSv6qtU7-1)
-
-
-### Folder Structure 🎄🌴🌲🌳
-
-Our folder structure was developed specially for our projects. 
-
+No EC2 required — use Docker Compose on your machine.
 
 ```bash
-.
-├── iac
-├── src
-│   ├── modules
-│   │   ├── create_user
-│   │   │   └── app
-│   │   ├── delete_user
-│   │   │   └── app
-│   │   ├── get_user
-│   │   │   └── app
-│   │   └── update_user
-│   │       └── app
-│   └── shared
-│       ├── domain
-│       │   ├── entities
-│       │   ├── enums
-│       │   └── repositories
-│       ├── helpers
-│       │   ├── enum
-│       │   ├── errors
-│       │   ├── functions
-│       │   └── http
-│       └── infra
-│           ├── dto
-│           ├── external
-│           └── repositories
-└── tests
-    ├── modules
-    │   ├── create_user
-    │   │   └── app
-    │   ├── delete_user
-    │   │   └── app
-    │   ├── get_user
-    │   │   └── app
-    │   └── update_user
-    │       └── app
-    └── shared
-        ├── domain
-        │   └── entities
-        ├── helpers
-        └── infra
-
+git submodule update --init --recursive
+cd deploy
+cp .env.example .env
 ```
 
+Edit `deploy/.env` for local use:
 
-## Name Format 📛
-### Files and Directories 📁
+```bash
+BASE_URL=http://localhost
+DOMAIN_NAME=localhost
+POSTGRES_USER=arena
+POSTGRES_PASSWORD=arena
+POSTGRES_DB=arena
+GITHUB_CLIENT_ID=<from a GitHub App>
+GITHUB_CLIENT_SECRET=<from a GitHub App>
+GITHUB_REDIRECT_URI=http://localhost/auth/github/callback
+```
 
-- Files have the same name as the classes
-- snake_case 🐍 (ex: `./app/create_user_controller.py`)
+Create a GitHub App with homepage `http://localhost` and callback `http://localhost/auth/github/callback`, then:
 
-### Classes 🕴
-- #### Pattern 📟
+```bash
+docker compose up -d --build
+```
 
-    - CamelCase 🐫🐪
+Open **http://localhost**. First Rust image build can take several minutes.
 
-- #### Types 🧭
+`BASE_URL` is what the official board (`board.battlesnake.com`) uses as `engine=`. If it stays at the default (`http://localhost:3000`) or points at the wrong host, spectators see games against the wrong machine. For another device on your LAN, use your Mac’s LAN IP in `BASE_URL` (and open that IP in the browser).
 
-    - **Interface** starts with "I" --> `IUserRepository`, `ISelfieRepository` 😀
-    - **Repository** have the same name as interface, without the "I" and the type in final (ex: `UserRepositoryMock`, `SelfieRepositoryDynamo`) 🥬
-    - **Controller** ends with "Controller" --> `CreateUserController`, `GetSelfieController` 🎮
-    - **Usecase** ends with "Usecase" --> `CreateUserUsecase`, `GetSelfieUsecase` 🏠
-    - **Viewmodel** ends with "Viewmodel" --> `CreateUserViewmodel`, `GetSelfieViewmodel` 👀
-    - **Presenter** ends with "Presenter" --> `CreateUserPresenter`, `GetSelfiePresenter`🎁
+## Infrastructure & power
 
-### Methods 👨‍🏫
+- **CD** (`dev` / `homolog` / `prod`): CDK deploy via OIDC `GithubActionsRole`.
+- **EC2 Power**: Actions → Run workflow → `start` or `stop`.
 
-- snake_case 🐍
-- Try associate with a verb (ex: `create_user`, `get_user`, `update_selfie`)
+Required GitHub configuration (per stage): `AWS_ACCOUNT_ID_*`, `HOSTED_ZONE_ID_*`, `HOSTED_ZONE_NAME`, `DOMAIN_NAME`, `AWS_REGION`. See `AGENT_README.md`.
 
-### Variables 🅰
+## After EC2 is up (first bootstrap)
 
-- snake_case 🐍
-- Avoid verbs
+The CD only provisions infra (EC2, Elastic IP, Route53, Docker on the AMI). The Arena app is **not** started until you bootstrap the host once.
 
-### Enums
+### 1. Create a GitHub App (OAuth)
 
-- SNAKE_CASE 🐍
-- File name ends with "ENUM" (ex: "STATE_ENUM")
+1. Org or personal: [GitHub Apps](https://github.com/settings/apps) (org: `https://github.com/organizations/Maua-Dev/settings/apps`).
+2. **Callback URL:** `https://<DOMAIN_NAME>/auth/github/callback` (ex.: `https://arena.dev.devmaua.com/auth/github/callback`).
+3. Copy **Client ID** and generate a **Client secret**.
 
-### Tests 📄
+### 2. Open an SSM session
 
-- snake_case 🐍
-- "test" follow by class name (ex: `test_cadastrar_usuario_valido`, `test_cadastrar_usuario_sem_email`)
-    - The files must start with "test" to pytest recognition
+Install the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) locally if needed, then:
 
-### Commit 💢
+```bash
+# instance id also in stack output / SSM /battlesnake-arena/<stage>/instance-id
+aws ssm start-session --target <INSTANCE_ID> --profile <your-aws-profile>
+```
 
-- Start with verb
-- Ends with emoji 😎
+### 3. Clone the repo on the host
 
+```bash
+cd ~
+sudo mkdir -p /opt/battlesnake-arena
+sudo chown "$(whoami)":"$(whoami)" /opt/battlesnake-arena
+cd /opt/battlesnake-arena
+sudo dnf install -y git
+git clone --recurse-submodules https://github.com/Maua-Dev/devcommunity_battlesnake_arena.git .
+# if submodule missing:
+# git submodule update --init --recursive
+```
 
-## Architecture Diagram 🏗
-![img.png](docs/architecture_diagram.png)
+### 4. Configure `deploy/.env`
 
+```bash
+cd /opt/battlesnake-arena/deploy
+cp .env.example .env
+nano .env
+```
 
+Set at least:
 
+```bash
+BASE_URL=https://arena.dev.devmaua.com
+DOMAIN_NAME=arena.dev.devmaua.com
+POSTGRES_USER=arena
+POSTGRES_PASSWORD=<strong-password>
+POSTGRES_DB=arena
+GITHUB_CLIENT_ID=<from GitHub App>
+GITHUB_CLIENT_SECRET=<from GitHub App>
+GITHUB_REDIRECT_URI=https://arena.dev.devmaua.com/auth/github/callback
+```
 
-## Installation 👩‍💻
+`BASE_URL` must be the public HTTPS origin (no trailing slash). Without it, the board client defaults to `http://localhost:3000` and games break for other users.
 
-Clone the repository using template
+### 5. Start the stack
 
-### Create virtual ambient in python (only first time)
+```bash
+cd /opt/battlesnake-arena
+./deploy/scripts/bootstrap.sh
+```
 
-###### Windows
+Build of the Rust Arena image can take several minutes. Then check:
 
-    python -m venv venv
+```bash
+cd /opt/battlesnake-arena/deploy
+sudo docker compose ps
+curl -I http://localhost
+```
 
-###### Linux
+Open `https://<DOMAIN_NAME>` in the browser.
 
-    virtualenv -p python3.9 venv
+### Hotfix: set / update `BASE_URL` on a running host
 
-### Activate the venv
+If the stack is already up but games point at localhost, on the EC2 (SSM):
 
-###### Windows:
+```bash
+cd /opt/battlesnake-arena/deploy
+nano .env   # add or fix: BASE_URL=https://arena.dev.devmaua.com
+# optional: git pull so docker-compose.yml includes BASE_URL
+sudo docker compose up -d
+```
 
-    venv\Scripts\activate
+That recreates the `arena` container with the new env (no CDK redeploy).
 
-###### Linux:
+### After stop/start
 
-    source venv/bin/activate
+You do **not** need to re-clone or re-bootstrap. Disk and Docker volumes persist. If containers did not come back:
 
-### Install the requirements
+```bash
+cd /opt/battlesnake-arena/deploy
+sudo docker compose up -d
+```
 
-    pip install -r requirements-dev.txt
+## Contributors
 
-### Run the tests
+- Leonardo Iorio - [lseixas](https://github.com/lseixas) 🐉
 
-    pytest
+## License
 
-### To run local set .env file
-
-    STAGE = TEST
-
-
-## Contributors 💰🤝💰
-
-- Bruno Vilardi - [Brvilardi](https://github.com/Brvilardi) 👷‍♂️
-- Hector Guerrini - [hectorguerrini](https://github.com/hectorguerrini) 🧙‍♂️
-- João Branco - [JoaoVitorBranco](https://github.com/JoaoVitorBranco) 😎
-- Vitor Soller - [VgsStudio](https://github.com/VgsStudio) ☀
-- Lucas Duez - [Lucasdvs10](https://github.com/Lucasdvs10) 🤡
-- Rodrigo Morales - [RodrigoM2004](https://github.com/RodrigoM2004) 🚗
-- Lucas Milani - [LucasKiller](https://github.com/LucasKiller) 🔪
-- Rafael Rubio - [Rubiozito](https://github.com/Rubiozito) 🎸
-
-## Special Thanks 🙏
-
-- [Dev. Community Mauá](https://www.instagram.com/devcommunitymaua/)
-- [Clean Architecture: A Craftsman's Guide to Software Structure and Design](https://www.amazon.com.br/Clean-Architecture-Craftsmans-Software-Structure/dp/0134494164)
-- [Institute Mauá of Technology](https://www.maua.br/)
-
-
-
+Deploy/infra glue follows Dev Community conventions. Upstream Arena: see `arena/LICENSE`.
