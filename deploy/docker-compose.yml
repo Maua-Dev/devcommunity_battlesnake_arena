@@ -19,6 +19,7 @@ services:
           memory: 768M
 
   arena:
+    image: battlesnake-arena:local
     build:
       context: ../arena
       dockerfile: Dockerfile
@@ -39,10 +40,47 @@ services:
       ARENA_JOB_WORKERS: ${ARENA_JOB_WORKERS:-2}
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
     deploy:
       resources:
         limits:
           memory: 1536M
+
+  # Standby used only during blue/green deploys (profile bluegreen).
+  # Lower memory so t3.medium (4GB) can briefly run both arenas + postgres.
+  arena_next:
+    profiles: ["bluegreen"]
+    image: battlesnake-arena:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      BASE_URL: ${BASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-arena}:${POSTGRES_PASSWORD:-arena}@postgres:5432/${POSTGRES_DB:-arena}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+      ARENA_JOB_POLL_INTERVAL_MS: ${ARENA_JOB_POLL_INTERVAL_MS:-500}
+      # Avoid double job workers while both containers are up.
+      ARENA_JOB_WORKERS: "0"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
 
   caddy:
     image: caddy:2-alpine
@@ -56,6 +94,7 @@ services:
       DOMAIN_NAME: ${DOMAIN_NAME:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile.upstream:/etc/caddy/Caddyfile.upstream:ro
       - caddy_data:/data
       - caddy_config:/config
     deploy:
