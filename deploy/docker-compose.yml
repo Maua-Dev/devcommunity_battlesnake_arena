@@ -34,6 +34,9 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+      # How often the job worker looks for "Run Round" / game-start jobs.
+      ARENA_JOB_POLL_INTERVAL_MS: ${ARENA_JOB_POLL_INTERVAL_MS:-500}
+      ARENA_JOB_WORKERS: ${ARENA_JOB_WORKERS:-2}
     expose:
       - "8080"
     deploy:
